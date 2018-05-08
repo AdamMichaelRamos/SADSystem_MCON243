@@ -6,7 +6,7 @@ import java.net.Socket;
 
 public class Main {
     public static void main(String[] args) {
-        Thread t1 = new Thread(() -> {
+        Thread serverThread = new Thread(() -> {
             try {
                 ServerSocket serverSocket = new ServerSocket(7777);
                 Socket client = serverSocket.accept();
@@ -15,7 +15,7 @@ public class Main {
                 e.printStackTrace();
             }
         });
-        Thread t2 = new Thread(() -> {
+        Thread clientThread = new Thread(() -> {
             try {
                 Socket client = new Socket("localhost", 7777);
                 while (true) client.getOutputStream().write(10);
@@ -24,12 +24,12 @@ public class Main {
             }
         });
 
-        t1.start();
-        t2.start();
+        serverThread.start();
+        clientThread.start();
 
         try {
-            t1.join();
-            t2.join();
+            serverThread.join();
+            clientThread.join();
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
