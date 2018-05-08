@@ -4,9 +4,6 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-/**
- * Created by amram on 5/7/2018.
- */
 public class Main {
     public static void main(String[] args) {
         Thread t1 = new Thread(() -> {
