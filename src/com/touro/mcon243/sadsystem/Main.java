@@ -1,16 +1,15 @@
 package com.touro.mcon243.sadsystem;
 
+import com.touro.mcon243.sadsystem.slave.SADSlave;
+import com.touro.mcon243.sadsystem.slave.WorkGenerator;
+
 public class Main {
     public static void main(String[] args) {
-        Thread serverThread = new Thread(new SADServer(7777));
-        Thread clientThread = new Thread(new SADClient("localhost", 7777));
-
-        serverThread.start();
-        clientThread.start();
+        Thread slaveThread = new Thread(new SADSlave("slave1", 1000, new WorkGenerator()));
+        slaveThread.start();
 
         try {
-            serverThread.join();
-            clientThread.join();
+            slaveThread.join();
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
