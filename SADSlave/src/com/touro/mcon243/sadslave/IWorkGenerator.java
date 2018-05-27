@@ -1,4 +1,4 @@
-package com.touro.mcon243.sadsystem.slave;
+package com.touro.mcon243.sadslave;
 
 /**
  * Created by amram on 5/27/2018.

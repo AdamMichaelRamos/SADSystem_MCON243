@@ -1,4 +1,4 @@
-package com.touro.mcon243.sadsystem.slave;
+package com.touro.mcon243.sadslave;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -33,6 +33,7 @@ public class SADSlave implements Runnable {
     private static BufferedReader acceptConnectionFromMaster(String slaveName, int slavePort) throws IOException {
         ServerSocket serverSocket = new ServerSocket(slavePort);
         System.out.println(String.format("%s| listening for connections on port: %s", slaveName, slavePort));
+
         Socket socket = serverSocket.accept();
         System.out.println(String.format("%s| Connection accepted", slaveName));
 

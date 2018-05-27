@@ -1,6 +1,4 @@
-package com.touro.mcon243.sadsystem.slave;
-
-import com.touro.mcon243.sadsystem.slave.IWorkGenerator;
+package com.touro.mcon243.sadslave;
 
 import java.util.Random;
 

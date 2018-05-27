@@ -1,4 +1,4 @@
-package com.touro.mcon243.sadsystem.slave;
+package com.touro.mcon243.sadslave;
 
 import java.io.BufferedReader;
 import java.io.IOException;

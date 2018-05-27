@@ -1,6 +1,6 @@
-package com.touro.mcon243.sadsystem.tests;
+package com.touro.mcon243.sadslave.tests;
 
-import com.touro.mcon243.sadsystem.slave.SADSlave;
+import com.touro.mcon243.sadslave.SADSlave;
 import org.junit.Test;
 
 import java.io.IOException;
