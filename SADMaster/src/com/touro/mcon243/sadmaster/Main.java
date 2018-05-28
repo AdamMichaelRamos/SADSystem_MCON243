@@ -5,16 +5,10 @@ import java.net.Socket;
 import java.util.*;
 
 /**
- * Created by amram on 5/27/2018.
+ * Created by amram/nfried on 5/27/2018.
  */
 public class Main {
-    private static final String
-            UPDATE = "update",
-            OUTPUT = "output",
-            WORKING = "working",
-            IDLE = "idle",
-            DEAD = "dead";
-    private static final List<String> VALID_STATUSES = Arrays.asList(Main.WORKING, Main.IDLE);
+    private static final String WORKING = "working", IDLE = "idle", DEAD = "dead";
 
     public static void main(String[] args) throws IOException {
         Socket slaveSocket1 = new Socket("localhost", 1000);
@@ -27,27 +21,43 @@ public class Main {
 
         System.out.print("Master start...");
 
-        SlaveFrame slave1Frame = new SlaveFrame() {{ this.status = Main.IDLE; this.reader = slaveReader1; }};
-        Thread slave1StatusThread = new Thread(Main.createSlaveFrameHandler(slave1Frame));
+        SlaveFrame slave1Frame = new SlaveFrame("slave1", slaveReader1, slaveWriter1);
+        Thread slave1StatusThread = new Thread(Main.createSlaveOutputHandler(slave1Frame));
 
-        SlaveFrame slave2Frame = new SlaveFrame() {{ this.status = Main.IDLE; this.reader = slaveReader2; }};
-        Thread slave2StatusThread = new Thread(Main.createSlaveFrameHandler(slave2Frame));
+        SlaveFrame slave2Frame = new SlaveFrame("slave2", slaveReader2, slaveWriter2);
+        Thread slave2StatusThread = new Thread(Main.createSlaveOutputHandler(slave2Frame));
 
         slave1StatusThread.start();
         slave2StatusThread.start();
 
-        String input;
         Scanner scanner = new Scanner(System.in);
 
         System.out.print("\n> ");
-        while (!(input = scanner.nextLine()).equalsIgnoreCase("exit")) {
-            System.out.print(String.format("User typed: %s\n> ", input));
 
-            if (slave1Frame.status.equalsIgnoreCase(Main.IDLE))
-                Main.sendCommandToSlave(slaveWriter1, input);
-            else if (slave2Frame.status.equalsIgnoreCase(Main.IDLE))
-                Main.sendCommandToSlave(slaveWriter2, input);
-            else System.out.print("No resources available, dumping input\n> ");
+        List<SlaveFrame> slaveFrames = Arrays.asList(slave1Frame, slave2Frame);
+        final boolean[] foundIdleResource = {false};
+        String[] userInput = new String[1];
+        while (!(userInput[0] = scanner.nextLine()).equalsIgnoreCase("exit")) {
+            slaveFrames.stream()
+                    .filter(SlaveFrame::isIdle)
+                    .findFirst()
+                    .ifPresent(idleSlave -> {
+                        foundIdleResource[0] = true;
+
+                        synchronized (idleSlave.status) {
+                            idleSlave.setAsWorking();
+                        }
+
+                        try {
+                            Main.sendCommandToSlave(idleSlave.writer, userInput[0]);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    });
+
+            if (!foundIdleResource[0])
+                System.out.print(String.format("No resources available, dumping user input: %s\n> ", userInput[0]));
+            foundIdleResource[0] = false;
         }
     }
 
@@ -57,29 +67,55 @@ public class Main {
         slaveWriter.flush();
     }
 
-    private static Runnable createSlaveFrameHandler(SlaveFrame slaveFrame) {
+    private static Runnable createSlaveOutputHandler(SlaveFrame slaveFrame) {
         return () -> {
             try {
-                while (true) {
-                    String action = slaveFrame.reader.readLine(), output = slaveFrame.reader.readLine();
-
-                    if (action.equalsIgnoreCase(Main.UPDATE))
-                        slaveFrame.status = output;
-                    else if (action.equalsIgnoreCase(Main.OUTPUT))
-                        slaveFrame.outputQueue.add(output);
-
-                    if (!Main.VALID_STATUSES.contains(slaveFrame.status)) break;
+                while (slaveFrame.isAlive()) {
+                    String slaveOutput = slaveFrame.reader.readLine();
+                    synchronized (slaveFrame.status) {
+                        slaveFrame.setAsIdle();
+                    }
+                    System.out.println(String.format("%s completed job: %s", slaveFrame.name, slaveOutput));
                 }
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            slaveFrame.status = Main.DEAD;
+            slaveFrame.setDead();
+            System.out.println(String.format("%s shutting down...", slaveFrame.name));
         };
     }
 
     private static class SlaveFrame {
-        String status;
-        BufferedReader reader;
-        Queue<String> outputQueue = new LinkedList<>();
+        private final String[] status;
+        private final String name;
+        private final BufferedReader reader;
+        private final BufferedWriter writer;
+
+        private SlaveFrame(String name, BufferedReader reader, BufferedWriter writer) {
+            this.status = new String[]{ Main.IDLE };
+            this.name = name;
+            this.reader = reader;
+            this.writer = writer;
+        }
+
+        private boolean isIdle() {
+            return this.status[0].equalsIgnoreCase(Main.IDLE);
+        }
+
+        private boolean isAlive() {
+            return !this.status[0].equalsIgnoreCase(Main.DEAD);
+        }
+
+        private void setAsIdle() {
+            this.status[0] = Main.IDLE;
+        }
+
+        private void setAsWorking() {
+            this.status[0] = Main.WORKING;
+        }
+
+        private void setDead() {
+            this.status[0] = Main.DEAD;
+        }
     }
 }
