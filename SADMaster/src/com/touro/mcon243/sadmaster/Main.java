@@ -11,20 +11,12 @@ public class Main {
     private static final String WORKING = "working", IDLE = "idle", DEAD = "dead";
 
     public static void main(String[] args) throws IOException {
-        Socket slaveSocket1 = new Socket("localhost", 1000);
-        BufferedWriter slaveWriter1 = new BufferedWriter(new OutputStreamWriter(slaveSocket1.getOutputStream()));
-        BufferedReader slaveReader1 = new BufferedReader(new InputStreamReader(slaveSocket1.getInputStream()));
-
-        Socket slaveSocket2 = new Socket("localhost", 1001);
-        BufferedWriter slaveWriter2 = new BufferedWriter(new OutputStreamWriter(slaveSocket2.getOutputStream()));
-        BufferedReader slaveReader2 = new BufferedReader(new InputStreamReader(slaveSocket2.getInputStream()));
-
         System.out.print("Master start...");
 
-        SlaveFrame slave1Frame = new SlaveFrame("slave1", slaveReader1, slaveWriter1);
+        SlaveFrame slave1Frame = Main.getSlaveConnectionFrame("slave1", "localhost", 1000);
         Thread slave1StatusThread = new Thread(Main.createSlaveOutputHandler(slave1Frame));
 
-        SlaveFrame slave2Frame = new SlaveFrame("slave2", slaveReader2, slaveWriter2);
+        SlaveFrame slave2Frame = Main.getSlaveConnectionFrame("slave2", "localhost", 1001);
         Thread slave2StatusThread = new Thread(Main.createSlaveOutputHandler(slave2Frame));
 
         slave1StatusThread.start();
@@ -83,6 +75,13 @@ public class Main {
             slaveFrame.setDead();
             System.out.println(String.format("%s shutting down...", slaveFrame.name));
         };
+    }
+
+    private static SlaveFrame getSlaveConnectionFrame(String slaveName, String host, int port) throws IOException {
+        Socket slaveSocket = new Socket(host, port);
+        BufferedWriter slaveWriter1 = new BufferedWriter(new OutputStreamWriter(slaveSocket.getOutputStream()));
+        BufferedReader slaveReader1 = new BufferedReader(new InputStreamReader(slaveSocket.getInputStream()));
+        return new SlaveFrame(slaveName, slaveReader1, slaveWriter1);
     }
 
     private static class SlaveFrame {
