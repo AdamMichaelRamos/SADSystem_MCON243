@@ -3,6 +3,7 @@ package com.touro.mcon243.sadmaster;
 import java.io.*;
 import java.net.Socket;
 import java.util.*;
+import java.util.stream.IntStream;
 
 /**
  * Created by amram/nfried on 5/27/2018.
@@ -13,20 +14,28 @@ public class Main {
     public static void main(String[] args) throws IOException {
         System.out.print("Master start...");
 
-        SlaveFrame slave1Frame = Main.getSlaveConnectionFrame("slave1", "localhost", 1000);
-        Thread slave1StatusThread = new Thread(Main.createSlaveOutputHandler(slave1Frame));
+        List<SlaveFrame> slaveFrames = IntStream.range(0, 2).collect(
+                ArrayList::new,
+                (newSlaves, i) -> {
+                    try {
+                        newSlaves.add(Main.getSlaveConnectionFrame("slave" + i, "localhost", 1000 + i));
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                },
+                ArrayList::addAll);
 
-        SlaveFrame slave2Frame = Main.getSlaveConnectionFrame("slave2", "localhost", 1001);
-        Thread slave2StatusThread = new Thread(Main.createSlaveOutputHandler(slave2Frame));
+        List<Thread> slaveReadThreads = slaveFrames.stream().collect(
+                ArrayList::new,
+                (newThreads, slaveFrame) -> newThreads.add(new Thread(Main.createSlaveOutputHandler(slaveFrame))),
+                ArrayList::addAll);
 
-        slave1StatusThread.start();
-        slave2StatusThread.start();
+        slaveReadThreads.forEach(Thread::start);
 
         Scanner scanner = new Scanner(System.in);
 
         System.out.print("\n> ");
 
-        List<SlaveFrame> slaveFrames = Arrays.asList(slave1Frame, slave2Frame);
         final boolean[] foundIdleResource = {false};
         String[] userInput = new String[1];
         while (!(userInput[0] = scanner.nextLine()).equalsIgnoreCase("exit")) {
