@@ -1,24 +1,27 @@
 package com.touro.mcon243.sadmaster.slave;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
+import java.io.*;
+import java.net.Socket;
 
 /**
  * Created by amram on 6/12/2018.
+ *
  */
 public class SlaveFrame {
     private static final String WORKING = "working", IDLE = "idle", DEAD = "dead";
 
     public final String[] status;
     public final String name;
+    private final Socket slaveSocket;
     public final BufferedReader reader;
     public final BufferedWriter writer;
 
-    public SlaveFrame(String name, BufferedReader reader, BufferedWriter writer) {
+    public SlaveFrame(String name, Socket slaveSocket) throws IOException {
         this.status = new String[]{ SlaveFrame.IDLE };
         this.name = name;
-        this.reader = reader;
-        this.writer = writer;
+        this.reader = new BufferedReader(new InputStreamReader(slaveSocket.getInputStream()));
+        this.writer = new BufferedWriter(new OutputStreamWriter(slaveSocket.getOutputStream()));
+        this.slaveSocket = slaveSocket;
     }
 
     public boolean isIdle() {
@@ -39,5 +42,10 @@ public class SlaveFrame {
 
     public void setDead() {
         this.status[0] = SlaveFrame.DEAD;
+    }
+
+    public void tryToclose() {
+        try { this.slaveSocket.close(); }
+        catch (IOException e) { e.printStackTrace(); }
     }
 }

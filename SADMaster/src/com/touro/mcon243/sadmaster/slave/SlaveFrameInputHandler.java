@@ -1,7 +1,5 @@
 package com.touro.mcon243.sadmaster.slave;
 
-import com.touro.mcon243.sadmaster.Main;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -9,6 +7,7 @@ import java.util.stream.Stream;
 
 /**
  * Created by amram on 6/12/2018.
+ *
  */
 public class SlaveFrameInputHandler {
     private static SlaveFrameInputHandler instance = null;
@@ -47,6 +46,8 @@ public class SlaveFrameInputHandler {
             }
             slaveFrame.setDead();
             System.out.println(String.format("%s shutting down...", slaveFrame.name));
+
+            slaveFrame.tryToclose();
         };
     }
 

@@ -9,6 +9,7 @@ import java.util.stream.Stream;
 
 /**
  * Created by amram on 6/12/2018.
+ *
  */
 public class SlaveFrameCreationHandler {
     private static final int MAX_CONNECTIONS = 2;
@@ -21,8 +22,8 @@ public class SlaveFrameCreationHandler {
                 ArrayList::new,
                 (newSlaves, i) -> {
                     try {
-                        newSlaves.add(
-                                SlaveFrameCreationHandler.createSlaveConnectionFrame("slave" + i, "localhost", 1000 + i));
+                        Socket slaveSocket = new Socket("localhost", 1000+i);
+                        newSlaves.add(new SlaveFrame("slave" + i, slaveSocket));
                     }
                     catch (IOException e) { e.printStackTrace(); }
                 },
@@ -31,13 +32,6 @@ public class SlaveFrameCreationHandler {
 
     public Stream<SlaveFrame> getSlaveFrameStream() {
         return this.slaveFrames.stream();
-    }
-
-    private static SlaveFrame createSlaveConnectionFrame(String slaveName, String host, int port) throws IOException {
-        Socket slaveSocket = new Socket(host, port);
-        BufferedWriter slaveWriter1 = new BufferedWriter(new OutputStreamWriter(slaveSocket.getOutputStream()));
-        BufferedReader slaveReader1 = new BufferedReader(new InputStreamReader(slaveSocket.getInputStream()));
-        return new SlaveFrame(slaveName, slaveReader1, slaveWriter1);
     }
 
     public static SlaveFrameCreationHandler getInstance() {
