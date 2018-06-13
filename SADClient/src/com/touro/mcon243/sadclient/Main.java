@@ -1,8 +1,6 @@
 package com.touro.mcon243.sadclient;
 
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
+import java.io.*;
 import java.net.Socket;
 import java.util.Scanner;
 
@@ -16,7 +14,20 @@ public class Main {
         int port = 7777;
         Socket connectionToMaster = new Socket("localhost", port);
         BufferedWriter outputToMaster = new BufferedWriter(new OutputStreamWriter(connectionToMaster.getOutputStream()));
-        System.out.println(String.format("Successfully connected to master at port: %d", port));
+        final BufferedReader inputFromMaster = new BufferedReader(new InputStreamReader(connectionToMaster.getInputStream()));
+        System.out.println(String.format("Successfully connected to master at port: %d\n> ", port));
+
+        Thread thread = new Thread(() -> {
+            while(true) {
+                try {
+                    System.out.print(String.format("Master responded: %s\n> ", inputFromMaster.readLine()));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    break;
+                }
+            }
+        });
+        thread.start();
 
         Scanner scanner = new Scanner(System.in);
 

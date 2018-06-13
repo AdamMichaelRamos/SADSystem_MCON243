@@ -8,9 +8,10 @@ import java.net.Socket;
  *
  */
 public class SlaveFrame {
-    private static final String WORKING = "working", IDLE = "idle", DEAD = "dead";
+    private static final String WORKING = "working", DONE = "done", IDLE = "idle", DEAD = "dead";
 
     public final String[] status;
+    public String assignedClientId = null, slaveInput = null;
     public final String name;
     private final Socket slaveSocket;
     public final BufferedReader reader;
@@ -22,6 +23,10 @@ public class SlaveFrame {
         this.reader = new BufferedReader(new InputStreamReader(slaveSocket.getInputStream()));
         this.writer = new BufferedWriter(new OutputStreamWriter(slaveSocket.getOutputStream()));
         this.slaveSocket = slaveSocket;
+    }
+
+    public boolean isDone() {
+        return this.status[0].equalsIgnoreCase(SlaveFrame.DONE);
     }
 
     public boolean isIdle() {
@@ -40,11 +45,20 @@ public class SlaveFrame {
         this.status[0] = SlaveFrame.WORKING;
     }
 
+    public void setAsDone() {
+        this.status[0] = SlaveFrame.DONE;
+    }
+
     public void setDead() {
         this.status[0] = SlaveFrame.DEAD;
     }
 
-    public void tryToclose() {
+    public void clearData() {
+        this.assignedClientId = null;
+        this.slaveInput = null;
+    }
+
+    public void tryToClose() {
         try { this.slaveSocket.close(); }
         catch (IOException e) { e.printStackTrace(); }
     }

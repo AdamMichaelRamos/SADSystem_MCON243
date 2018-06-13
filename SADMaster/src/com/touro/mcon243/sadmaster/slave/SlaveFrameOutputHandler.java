@@ -1,7 +1,10 @@
 package com.touro.mcon243.sadmaster.slave;
 
+import com.touro.mcon243.sadmaster.Main;
+
 import java.io.BufferedWriter;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.function.BiConsumer;
 import java.util.stream.Stream;
 
@@ -12,7 +15,7 @@ import java.util.stream.Stream;
 public class SlaveFrameOutputHandler {
     public static boolean dispatchMessageToIdleSlaveFrame(
             Stream<SlaveFrame> slaveFrameStream,
-            String message,
+            Main.ClientMessage clientMessage,
             BiConsumer<BufferedWriter, String> messageDispatcher) {
 
         Optional<SlaveFrame> idleSlave = slaveFrameStream.filter(SlaveFrame::isIdle).findFirst();
@@ -20,10 +23,10 @@ public class SlaveFrameOutputHandler {
         idleSlave.ifPresent(slave -> {
             synchronized (slave.status) {
                 slave.setAsWorking();
+                slave.assignedClientId = clientMessage.clientId;
             }
-            messageDispatcher.accept(slave.writer, message);
+            messageDispatcher.accept(slave.writer, clientMessage.message);
         });
-
         return idleSlave.isPresent();
     }
 }

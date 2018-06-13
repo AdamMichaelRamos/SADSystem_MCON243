@@ -37,7 +37,8 @@ public class SlaveFrameInputHandler {
                 while (slaveFrame.isAlive()) {
                     String slaveInput = slaveFrame.reader.readLine();
                     synchronized (slaveFrame.status) {
-                        slaveFrame.setAsIdle();
+                        slaveFrame.setAsDone();
+                        slaveFrame.slaveInput = slaveInput;
                     }
                     System.out.println(String.format("%s completed job: %s", slaveFrame.name, slaveInput));
                 }
@@ -47,7 +48,7 @@ public class SlaveFrameInputHandler {
             slaveFrame.setDead();
             System.out.println(String.format("%s shutting down...", slaveFrame.name));
 
-            slaveFrame.tryToclose();
+            slaveFrame.tryToClose();
         };
     }
 
