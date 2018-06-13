@@ -8,29 +8,20 @@ import com.touro.mcon243.sadmaster.slave.SlaveFrameOutputHandler;
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.Queue;
+import java.util.*;
 
 /**
  * Created by amram/nfried on 5/27/2018.
  *
  */
 public class Main {
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, InterruptedException {
         System.out.print("Master start...");
 
         SlaveFrameCreationHandler slaveConnections = SlaveFrameCreationHandler.getInstance();
         SlaveFrameInputHandler slaveInputHandler = SlaveFrameInputHandler.getInstance(slaveConnections.getSlaveFrameStream());
 
-        ServerSocket serverSocket = new ServerSocket(7777);
-        Socket userConnection = serverSocket.accept();
-
-        ClientFrame clientFrame = new ClientFrame("id1", userConnection);
-
-        HashMap<String, ClientFrame> clientFrameMap = new HashMap<>();
-        clientFrameMap.put(clientFrame.clientId, clientFrame);
-
+        final HashMap<String, ClientFrame> clientFrameMap = new HashMap<>();
         Queue<ClientMessage> clientMessageQueue = new LinkedList<>();
 
         Thread slaveJobDispatcherThread = new Thread(() ->{
@@ -76,7 +67,8 @@ public class Main {
                             try {
                                 synchronized (doneSlave.status) {
                                     ClientFrame client = clientFrameMap.get(doneSlave.assignedClientId);
-                                    System.out.println(String.format("respond to client: %s with job completed: %s", client.clientId, doneSlave.slaveInput));
+                                    System.out.print(String.format("respond to client: %s with job completed: %s\n> ",
+                                            client.clientId, doneSlave.slaveInput));
                                     Main.sendInputLineToWriter(client.writer, doneSlave.slaveInput);
                                     doneSlave.clearData();
                                     doneSlave.setAsIdle();
@@ -91,14 +83,48 @@ public class Main {
         completedSlaveJobsThread.start();
 
         System.out.print("\n> ");
+        final List<Thread> clientInputReaderThreads = new ArrayList<>();
+        Thread clientConnectionAcceptorThread = new Thread(() -> {
+            try {
+                int counter = 0;
+                ServerSocket serverSocket = new ServerSocket(7777);
+                while (true) {
+                    Socket userConnection = serverSocket.accept();
+                    ClientFrame clientFrame = new ClientFrame("client_"+counter++, userConnection);
 
-        String userInput;
-        while (!(userInput = clientFrame.reader.readLine()).equalsIgnoreCase("exit")) {
-            System.out.print(String.format("client: %s sent input: %s, submitting job to queue\n> ", clientFrame.clientId, userInput));
-            clientMessageQueue.add(new ClientMessage(clientFrame.clientId, userInput));
-        }
+                    synchronized (clientFrameMap) {
+                        clientFrameMap.put(clientFrame.clientId, clientFrame);
+                    }
 
+                    Thread clientFrameInputReaderThread = new Thread(() -> {
+                        String userInput;
+                        try {
+                            while (!(userInput = clientFrame.reader.readLine()).equalsIgnoreCase("exit")) {
+                                System.out.print(String.format("client: %s sent input: %s, submitting job to queue\n> ",
+                                        clientFrame.clientId, userInput));
+                                clientMessageQueue.add(new ClientMessage(clientFrame.clientId, userInput));
+                            }
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    });
+                    clientFrameInputReaderThread.start();
+                    clientInputReaderThreads.add(clientFrameInputReaderThread);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
+        clientConnectionAcceptorThread.start();
+
+        slaveJobDispatcherThread.join();
+        completedSlaveJobsThread.join();
+        clientConnectionAcceptorThread.join();
         slaveInputHandler.attemptToJoinAllThreads();
+        clientInputReaderThreads.forEach(t -> {
+            try { t.join(); }
+            catch (InterruptedException e) { e.printStackTrace(); }
+        });
     }
 
     private static void sendInputLineToWriter(BufferedWriter slaveWriter, String input) throws IOException {

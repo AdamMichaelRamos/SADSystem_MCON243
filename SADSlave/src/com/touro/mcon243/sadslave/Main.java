@@ -32,7 +32,7 @@ public class Main {
 
             System.out.println(String.format("%s| Job 'complete': %s", name, commandFromMaster));
 
-            writer.write(commandFromMaster);
+            writer.write(new StringBuilder(commandFromMaster).reverse().toString());
             writer.newLine();
             writer.flush();
         }
