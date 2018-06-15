@@ -35,7 +35,8 @@ public class SlaveFrameCreationHandler {
     }
 
     public static SlaveFrameCreationHandler getInstance() {
-        if (SlaveFrameCreationHandler.instance == null) SlaveFrameCreationHandler.instance = new SlaveFrameCreationHandler();
+        if (SlaveFrameCreationHandler.instance == null)
+            SlaveFrameCreationHandler.instance = new SlaveFrameCreationHandler();
         return SlaveFrameCreationHandler.instance;
     }
 }

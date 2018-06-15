@@ -3,6 +3,8 @@ package com.touro.mcon243.sadmaster.slave;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 /**

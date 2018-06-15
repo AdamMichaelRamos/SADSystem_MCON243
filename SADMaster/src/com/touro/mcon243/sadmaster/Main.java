@@ -1,6 +1,6 @@
 package com.touro.mcon243.sadmaster;
 
-import com.touro.mcon243.sadmaster.slave.SlaveFrame;
+import com.touro.mcon243.sadmaster.client.ClientFrameOutputHandler;
 import com.touro.mcon243.sadmaster.slave.SlaveFrameCreationHandler;
 import com.touro.mcon243.sadmaster.slave.SlaveFrameInputHandler;
 import com.touro.mcon243.sadmaster.slave.SlaveFrameOutputHandler;
@@ -9,6 +9,9 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.*;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /**
  * Created by amram/nfried on 5/27/2018.
@@ -18,69 +21,16 @@ public class Main {
     public static void main(String[] args) throws IOException, InterruptedException {
         System.out.print("Master start...");
 
-        SlaveFrameCreationHandler slaveConnections = SlaveFrameCreationHandler.getInstance();
-        SlaveFrameInputHandler slaveInputHandler = SlaveFrameInputHandler.getInstance(slaveConnections.getSlaveFrameStream());
-
         final HashMap<String, ClientFrame> clientFrameMap = new HashMap<>();
-        Queue<ClientMessage> clientMessageQueue = new LinkedList<>();
+        final Queue<ClientMessage> clientMessageQueue = new LinkedList<>();
+        final SlaveFrameCreationHandler slaveConnections = SlaveFrameCreationHandler.getInstance();
 
-        Thread slaveJobDispatcherThread = new Thread(() ->{
-            boolean foundIdleResource;
-            while (true) {
-                ClientMessage clientMessage;
-                synchronized (clientMessageQueue) {
-                    clientMessage = clientMessageQueue.peek();
-                }
-
-                foundIdleResource = clientMessage != null && SlaveFrameOutputHandler.dispatchMessageToIdleSlaveFrame(
-                        slaveConnections.getSlaveFrameStream(),
-                        clientMessage,
-                        (writer, message) -> {
-                            try {
-                                System.out.print(String.format("Sending message (%s) to idle slave\n> ", clientMessage.message));
-                                Main.sendInputLineToWriter(writer, message);
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-                        });
-
-                if (foundIdleResource) {
-                    synchronized (clientMessageQueue) {
-                        clientMessageQueue.poll();
-                    }
-                }
-            }
-        });
-        slaveJobDispatcherThread.start();
-
-        Thread completedSlaveJobsThread = new Thread(() -> {
-            while (true) {
-                slaveConnections.getSlaveFrameStream()
-                        .filter(slaveFrame -> {
-                            boolean accept;
-                            synchronized (slaveFrame.status) {
-                                accept = slaveFrame.isDone();
-                            }
-                            return accept;
-                        })
-                        .forEach(doneSlave -> {
-                            try {
-                                synchronized (doneSlave.status) {
-                                    ClientFrame client = clientFrameMap.get(doneSlave.assignedClientId);
-                                    System.out.print(String.format("respond to client: %s with job completed: %s\n> ",
-                                            client.clientId, doneSlave.slaveInput));
-                                    Main.sendInputLineToWriter(client.writer, doneSlave.slaveInput);
-                                    doneSlave.clearData();
-                                    doneSlave.setAsIdle();
-                                }
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-                        });
-                }
-            }
-        );
-        completedSlaveJobsThread.start();
+        SlaveFrameInputHandler slaveInputHandler = SlaveFrameInputHandler.getInstance(slaveConnections.getSlaveFrameStream());
+        SlaveFrameOutputHandler slaveFrameOutputHandler = Main.buildSlaveOutputHandler(slaveConnections, clientMessageQueue);
+        ClientFrameOutputHandler clientFrameOutputHandler = ClientFrameOutputHandler.getInstance(
+                slaveConnections::getSlaveFrameStream,
+                clientFrameMap::get,
+                Main::writeLineToWriterAndReturnSuccess);
 
         System.out.print("\n> ");
         final List<Thread> clientInputReaderThreads = new ArrayList<>();
@@ -117,27 +67,67 @@ public class Main {
         });
         clientConnectionAcceptorThread.start();
 
-        slaveJobDispatcherThread.join();
-        completedSlaveJobsThread.join();
         clientConnectionAcceptorThread.join();
-        slaveInputHandler.attemptToJoinAllThreads();
         clientInputReaderThreads.forEach(t -> {
             try { t.join(); }
             catch (InterruptedException e) { e.printStackTrace(); }
         });
     }
 
-    private static void sendInputLineToWriter(BufferedWriter slaveWriter, String input) throws IOException {
-        slaveWriter.write(input);
-        slaveWriter.newLine();
-        slaveWriter.flush();
+    private static void sendInputLineToWriter(BufferedWriter writer, String input) throws IOException {
+        writer.write(input);
+        writer.newLine();
+        writer.flush();
     }
 
-    private static class ClientFrame {
-        private final String clientId;
+    private static boolean writeLineToWriterAndReturnSuccess(BufferedWriter writer, String input) {
+        try {
+            Main.sendInputLineToWriter(writer, input);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+        return true;
+    }
+
+    private static SlaveFrameOutputHandler buildSlaveOutputHandler(
+            SlaveFrameCreationHandler slaveConnections,
+            Queue<ClientMessage> clientMessageQueue) {
+
+        Supplier<ClientMessage> messageSupplier = () -> {
+            ClientMessage message;
+            synchronized (clientMessageQueue) {
+                message = clientMessageQueue.peek();
+            }
+            return message;
+        };
+        BiConsumer<BufferedWriter, String> masterMessageDispatcher = (writer, message) ->  {
+            try {
+                System.out.print(String.format("Sending message (%s) to idle slave\n> ", message));
+                Main.sendInputLineToWriter(writer, message);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        };
+        Consumer<Boolean> handleResultOfDispatch = success -> {
+            if (success) {
+                synchronized (clientMessageQueue) {
+                    clientMessageQueue.poll();
+                }
+            }
+        };
+        return SlaveFrameOutputHandler.getInstance(
+                messageSupplier,
+                slaveConnections::getSlaveFrameStream,
+                masterMessageDispatcher,
+                handleResultOfDispatch);
+    }
+
+    public static class ClientFrame {
+        public final String clientId;
         private final Socket clientSocket;
         private final BufferedReader reader;
-        private final BufferedWriter writer;
+        public final BufferedWriter writer;
 
         private ClientFrame(String clientId, Socket clientSocket) throws IOException {
             this.clientId = clientId;
